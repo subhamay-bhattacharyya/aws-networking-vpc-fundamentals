@@ -64,21 +64,17 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload template to S3
-        id: upload
+      - name: Upload template to S3 and build URL
+        id: build-url
         run: |
           TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
           echo "Uploading template to S3..."
           aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
-          echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
-          echo "✅ Template uploaded to S3"
 
-      - name: Build S3 template URL
-        id: build-url
-        run: |
-          TEMPLATE_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
+          TEMPLATE_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${TEMPLATE_KEY}"
           echo "template_url=${TEMPLATE_URL}" >> $GITHUB_OUTPUT
           echo "Template URL: ${TEMPLATE_URL}"
+          echo "✅ Template uploaded to S3"
 
   deploy:
     name: Deploy Stack
