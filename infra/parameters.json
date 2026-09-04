@@ -1,1 +1,6 @@
-{}
+[
+  {
+    "ParameterKey": "BucketBaseName",
+    "ParameterValue": "subhamay-test-bucket"
+  }
+]

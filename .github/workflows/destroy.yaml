@@ -1,0 +1,81 @@
+name: Destroy Stack
+description: Destroy the CloudFormation stack
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  STACK_NAME: ${{ github.event.repository.name }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  OIDC_ROLE_NAME: ${{ vars.OIDC_ROLE_NAME }}
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    name: Destroy Stack
+    runs-on: ubuntu-latest
+    environment: devl
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.3.0
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4.2.0
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS Credentials
+        run: |
+          echo "✅ Successfully configured AWS credentials"
+          aws sts get-caller-identity
+
+      - name: Delete CloudFormation stack
+        id: delete
+        run: |
+          echo "Stack name: ${{ env.STACK_NAME }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+
+          # Check if stack exists
+          STACK_EXISTS=$(aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" 2>&1 || echo "")
+
+          if echo "$STACK_EXISTS" | grep -q "does not exist"; then
+            echo "⚠️  Stack does not exist, skipping deletion"
+            echo "STACK_EXISTS=false" >> $GITHUB_ENV
+          else
+            echo "Deleting stack..."
+            aws cloudformation delete-stack --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}"
+            echo "STACK_EXISTS=true" >> $GITHUB_ENV
+            echo "Stack deletion initiated"
+          fi
+
+      - name: Wait for stack deletion to complete
+        if: env.STACK_EXISTS == 'true'
+        run: |
+          echo "Waiting for stack deletion to complete..."
+          aws cloudformation wait stack-delete-complete --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}"
+          echo "✅ Stack deletion completed successfully"
+
+      - name: Display stack destruction summary
+        if: success()
+        run: |
+          echo "## 🗑️  CloudFormation Stack Destruction Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Destroyed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Stack Destruction Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Stack: \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Region: \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the AWS CloudFormation console for error details." >> $GITHUB_STEP_SUMMARY

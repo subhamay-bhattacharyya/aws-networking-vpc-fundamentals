@@ -4,11 +4,17 @@ AWSTemplateFormatVersion: '2010-09-09'
 
 Description: 'Basic CloudFormation template to create an S3 bucket'
 
+Parameters:
+  BucketBaseName:
+    Type: String
+    Default: subhamay-test-bucket
+    Description: Base name for the S3 bucket (account ID and region will be appended)
+
 Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'subhamay-test-bucket-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Sub '${BucketBaseName}-${AWS::AccountId}-${AWS::Region}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
