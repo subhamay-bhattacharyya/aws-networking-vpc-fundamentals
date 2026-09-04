@@ -47,10 +47,7 @@ jobs:
           aws sts get-caller-identity
 
       - name: Validate CloudFormation template
-        run: |
-          aws cloudformation validate-template \
-            --template-body file://infra/template.yaml
-          echo "✓ Template validation passed"
+        run: aws cloudformation validate-template --template-body file://infra/template.yaml && echo "✓ Template validation passed"
 
       - name: Upload template to S3
         run: |
@@ -66,16 +63,12 @@ jobs:
         run: |
           TEMPLATE_HTTPS_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
           echo "TEMPLATE_HTTPS_URL=${TEMPLATE_HTTPS_URL}" >> $GITHUB_ENV
+          echo "Debug - TEMPLATE_HTTPS_URL: ${TEMPLATE_HTTPS_URL}"
+          echo "Debug - STACK_NAME: ${{ env.STACK_NAME }}"
+          echo "Debug - AWS_REGION: ${{ env.AWS_REGION }}"
 
       - name: Deploy CloudFormation stack
-        run: |
-          aws cloudformation deploy \
-            --template-url "${{ env.TEMPLATE_HTTPS_URL }}" \
-            --stack-name ${{ env.STACK_NAME }} \
-            --region ${{ env.AWS_REGION }} \
-            --no-fail-on-empty-changeset \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
-          echo "✓ Stack deployment completed"
+        run: aws cloudformation deploy --template-url "${{ env.TEMPLATE_HTTPS_URL }}" --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND && echo "✓ Stack deployment completed"
 
       # - name: Fetch and display stack outputs
       #   if: success()
