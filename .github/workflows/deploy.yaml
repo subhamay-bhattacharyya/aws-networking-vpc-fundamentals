@@ -28,10 +28,10 @@ jobs:
     environment: devl
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.3.0
+        uses: actions/checkout@v4.4.0
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4.2.0
+        uses: aws-actions/configure-aws-credentials@v4.3.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -56,10 +56,10 @@ jobs:
       template_url: ${{ steps.build-url.outputs.template_url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.3.0
+        uses: actions/checkout@v4.4.0
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4.2.0
+        uses: aws-actions/configure-aws-credentials@v4.3.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -70,8 +70,16 @@ jobs:
           TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
           echo "Uploading template to S3..."
           aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
+
+          echo "Adding object tag with GitHub SHA..."
+          aws s3api put-object-tagging \
+            --bucket "${{ env.CFN_TEMPLATES_S3_BUCKET }}" \
+            --key "${TEMPLATE_KEY}" \
+            --tagging 'TagSet=[{Key=github-sha,Value=${{ github.sha }}}]' \
+            --region ${{ env.AWS_REGION }}
+
           echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
-          echo "✅ Template uploaded to S3"
+          echo "✅ Template uploaded to S3 with GitHub SHA tag"
 
       - name: Build S3 template URL
         id: build-url
@@ -87,10 +95,10 @@ jobs:
     needs: upload-to-s3
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.3.0
+        uses: actions/checkout@v4.4.0
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4.2.0
+        uses: aws-actions/configure-aws-credentials@v4.3.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
