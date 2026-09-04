@@ -67,7 +67,9 @@ jobs:
       - name: Upload template to S3
         id: upload
         run: |
+          set -e
           TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
+          echo "TEMPLATE_KEY=${TEMPLATE_KEY}"
           echo "Uploading template to S3..."
           aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
           echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
@@ -76,7 +78,10 @@ jobs:
       - name: Build S3 template URL
         id: build-url
         run: |
+          set -e
+          echo "TEMPLATE_KEY from env: ${{ env.TEMPLATE_KEY }}"
           TEMPLATE_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
+          echo "TEMPLATE_URL=${TEMPLATE_URL}"
           echo "template_url=${TEMPLATE_URL}" >> $GITHUB_OUTPUT
           echo "Template URL: ${TEMPLATE_URL}"
 
