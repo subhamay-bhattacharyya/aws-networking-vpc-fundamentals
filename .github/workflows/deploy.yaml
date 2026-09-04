@@ -28,10 +28,10 @@ jobs:
     environment: devl
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.0
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -56,10 +56,10 @@ jobs:
       template_url: ${{ steps.build-url.outputs.template_url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.0
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -87,10 +87,10 @@ jobs:
     needs: upload-to-s3
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.0
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
