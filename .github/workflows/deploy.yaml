@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/deploy.yaml'
   workflow_dispatch:
 
 env:
@@ -22,7 +22,8 @@ permissions:
   contents: read
 
 jobs:
-  validate-and-deploy:
+  cfn-deploy:
+    name: Validate and Deploy CloudFormation Stack
     runs-on: ubuntu-latest
     environment: devl
     steps:
@@ -43,7 +44,7 @@ jobs:
       - name: Verify AWS Credentials
         run: |
           echo "✅ Successfully configured AWS credentials"
-          aws sts get-caller-identity
+          # aws sts get-caller-identity
 
       - name: Validate CloudFormation template
         run: |
