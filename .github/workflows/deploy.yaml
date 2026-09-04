@@ -48,10 +48,15 @@ jobs:
       - name: Validate CloudFormation Templates
         uses: subhamay-bhattacharyya-gha/cfn-validate-action@main
         with:
-          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-role-arn: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           cloudformation-dir: 'infra'
           template-file: 'template.yaml'
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run CloudFormation Lint
+        uses: subhamay-bhattacharyya-gha/cfn-lint-action@main
+        with:
+          template-path: 'infra/template.yaml'
 
   upload-to-s3:
     name: Upload Template to S3
