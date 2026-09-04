@@ -22,8 +22,8 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate Template
+  deploy:
+    name: Deploy Stack
     runs-on: ubuntu-latest
     environment: devl
     steps:
@@ -47,57 +47,19 @@ jobs:
           aws cloudformation validate-template --template-body file://./infra/template.yaml --region ${{ env.AWS_REGION }}
           echo "✅ Template validation passed"
 
-  upload-to-s3:
-    name: Upload Template to S3
-    runs-on: ubuntu-latest
-    environment: devl
-    needs: validate
-    outputs:
-      template_url: ${{ steps.build-url.outputs.template_url }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.3.0
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4.2.0
-        with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload template to S3 and build URL
-        id: build-url
+      - name: Upload template to S3 and deploy
         run: |
           TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
           echo "Uploading template to S3..."
           aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
 
           TEMPLATE_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${TEMPLATE_KEY}"
-          echo "template_url=${TEMPLATE_URL}" >> $GITHUB_OUTPUT
           echo "Template URL: ${TEMPLATE_URL}"
           echo "✅ Template uploaded to S3"
 
-  deploy:
-    name: Deploy Stack
-    runs-on: ubuntu-latest
-    environment: devl
-    needs: upload-to-s3
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.3.0
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4.2.0
-        with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Deploy CloudFormation stack
-        id: deploy
-        run: |
-          TEMPLATE_URL="${{ needs.upload-to-s3.outputs.template_url }}"
+          echo ""
           echo "Stack name: ${{ env.STACK_NAME }}"
           echo "Region: ${{ env.AWS_REGION }}"
-          echo "Template URL: ${TEMPLATE_URL}"
 
           # Check if stack exists
           STACK_EXISTS=$(aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" 2>&1 || echo "")
