@@ -48,18 +48,14 @@ jobs:
 
       - name: Validate CloudFormation template
         run: |
-          ls -la infra/template.yaml
-          echo "---Template Content---"
-          cat infra/template.yaml
-          echo "---End Template---"
-          aws cloudformation validate-template --template-body file://./infra/template.yaml
+          cat infra/template.yaml | aws cloudformation validate-template --template-body file:///dev/stdin
           echo "✓ Template validation passed"
 
       - name: Deploy CloudFormation stack
         run: |
           echo "Stack name: ${{ env.STACK_NAME }}"
           echo "Region: ${{ env.AWS_REGION }}"
-          aws cloudformation deploy --template-body file://./infra/template.yaml --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+          cat infra/template.yaml | aws cloudformation deploy --template-body file:///dev/stdin --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
           echo "✓ Stack deployment completed"
 
       # - name: Fetch and display stack outputs
