@@ -84,3 +84,21 @@ jobs:
           echo "template_url=${TEMPLATE_URL}" >> $GITHUB_OUTPUT
           echo "Template URL: ${TEMPLATE_URL}"
           echo "✅ Template uploaded to S3"
+
+  deploy:
+    name: Deploy Stack
+    runs-on: ubuntu-latest
+    environment: devl
+    needs: upload-to-s3
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Display S3 Template URL
+        run: |
+          echo "## 📦 CloudFormation Template Uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Template URL:** \`${{ needs.upload-to-s3.outputs.template_url }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
