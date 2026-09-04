@@ -1,0 +1,139 @@
+name: Deploy CloudFormation Stack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: subhamay-cfn-templates-bucket-575937057599-us-east-1
+  STACK_NAME: vpc-fundamentals-stack
+  AWS_ACCOUNT_ID: 575937057599
+  ROLE_NAME: GitHubActionsOIDCRole
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show Subject Pattern
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Expected subject pattern: repo:${{ github.repository }}:*"
+        
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS Credentials
+        run: |
+          echo "✅ Successfully configured AWS credentials"
+          aws sts get-caller-identity
+
+      # - name: Validate CloudFormation template
+      #   run: |
+      #     aws cloudformation validate-template \
+      #       --template-body file://infra/template.yaml
+      #     echo "✓ Template validation passed"
+
+      # - name: Upload template to S3
+      #   run: |
+      #     TIMESTAMP=$(date +%s)
+      #     TEMPLATE_KEY="templates/vpc-fundamentals-${TIMESTAMP}.yaml"
+          
+      #     aws s3 cp infra/template.yaml "s3://${{ env.S3_BUCKET }}/${TEMPLATE_KEY}"
+          
+      #     echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
+      #     echo "✓ Template uploaded to S3"
+
+      # - name: Build S3 HTTPS URL
+      #   run: |
+      #     TEMPLATE_HTTPS_URL="https://${{ env.S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
+      #     echo "TEMPLATE_HTTPS_URL=${TEMPLATE_HTTPS_URL}" >> $GITHUB_ENV
+
+      # - name: Deploy CloudFormation stack
+      #   run: |
+      #     aws cloudformation deploy \
+      #       --template-url "${{ env.TEMPLATE_HTTPS_URL }}" \
+      #       --stack-name ${{ env.STACK_NAME }} \
+      #       --parameter-overrides file://infra/parameters.json \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --no-fail-on-empty-changeset \
+      #       --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+      #     echo "✓ Stack deployment completed"
+
+      # - name: Fetch and display stack outputs
+      #   if: success()
+      #   run: |
+      #     echo "## 📊 CloudFormation Stack Outputs" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     echo "**Stack Name:** \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+      #     echo "**Region:** \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
+      #     echo "**Deployment Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+          
+      #     STACK_INFO=$(aws cloudformation describe-stacks \
+      #       --stack-name ${{ env.STACK_NAME }} \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --query 'Stacks[0]' \
+      #       --output json)
+          
+      #     STACK_STATUS=$(echo $STACK_INFO | jq -r '.StackStatus')
+      #     echo "**Stack Status:** \`${STACK_STATUS}\`" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+          
+      #     OUTPUTS=$(echo $STACK_INFO | jq '.Outputs // empty')
+          
+      #     if [ -z "$OUTPUTS" ]; then
+      #       echo "### Outputs" >> $GITHUB_STEP_SUMMARY
+      #       echo "No outputs defined in this stack." >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo "### Outputs" >> $GITHUB_STEP_SUMMARY
+      #       echo "" >> $GITHUB_STEP_SUMMARY
+      #       echo "| Output Key | Value | Description |" >> $GITHUB_STEP_SUMMARY
+      #       echo "|------------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
+            
+      #       echo $OUTPUTS | jq -r '.[] | "| \`\(.OutputKey)\` | \`\(.OutputValue)\` | \(.Description // "N/A") |"' >> $GITHUB_STEP_SUMMARY
+      #     fi
+          
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     echo "### Resources" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+          
+      #     RESOURCES=$(aws cloudformation list-stack-resources \
+      #       --stack-name ${{ env.STACK_NAME }} \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --query 'StackResourceSummaries[*].[LogicalResourceId, ResourceType, ResourceStatus]' \
+      #       --output json)
+          
+      #     echo "| Logical ID | Resource Type | Status |" >> $GITHUB_STEP_SUMMARY
+      #     echo "|------------|---------------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+      #     echo $RESOURCES | jq -r '.[] | "| \`\(.[0])\` | \`\(.[1])\` | \(.[2]) |"' >> $GITHUB_STEP_SUMMARY
+          
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     echo "---" >> $GITHUB_STEP_SUMMARY
+      #     echo "📝 **Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      # - name: Notify on failure
+      #   if: failure()
+      #   run: |
+      #     echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     echo "Stack: \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+      #     echo "Region: \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     echo "Please check the AWS CloudFormation console for error details." >> $GITHUB_STEP_SUMMARY
