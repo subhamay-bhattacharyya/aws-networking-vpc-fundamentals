@@ -70,16 +70,8 @@ jobs:
           TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
           echo "Uploading template to S3..."
           aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
-
-          echo "Adding object tag with GitHub SHA..."
-          aws s3api put-object-tagging \
-            --bucket "${{ env.CFN_TEMPLATES_S3_BUCKET }}" \
-            --key "${TEMPLATE_KEY}" \
-            --tagging "TagSet=[{Key=github-sha,Value=${{ github.sha }}}]" \
-            --region ${{ env.AWS_REGION }}
-
           echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
-          echo "✅ Template uploaded to S3 with GitHub SHA tag"
+          echo "✅ Template uploaded to S3"
 
       - name: Build S3 template URL
         id: build-url
