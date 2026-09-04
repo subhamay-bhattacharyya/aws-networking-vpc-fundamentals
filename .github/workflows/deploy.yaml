@@ -64,15 +64,24 @@ jobs:
           echo "Stack name: ${{ env.STACK_NAME }}"
           echo "Region: ${{ env.AWS_REGION }}"
           echo "Template URL: ${{ env.TEMPLATE_URL }}"
-          echo "AWS CLI version:"
-          aws --version
 
-          if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
-            echo "Using parameters from parameters.json"
-            aws cloudformation deploy --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameter-overrides file://./infra/parameters.json --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+          # Check if stack exists
+          STACK_EXISTS=$(aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" 2>&1 || echo "")
+
+          if echo "$STACK_EXISTS" | grep -q "does not exist"; then
+            echo "Creating new stack..."
+            if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
+              aws cloudformation create-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameters file://./infra/parameters.json --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+            else
+              aws cloudformation create-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+            fi
           else
-            echo "No parameters to pass"
-            aws cloudformation deploy --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+            echo "Updating existing stack..."
+            if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
+              aws cloudformation update-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameters file://./infra/parameters.json --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND || true
+            else
+              aws cloudformation update-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND || true
+            fi
           fi
           echo "✓ Stack deployment completed"
 
