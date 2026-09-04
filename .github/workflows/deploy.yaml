@@ -72,7 +72,6 @@ jobs:
           aws cloudformation deploy \
             --template-url "${{ env.TEMPLATE_HTTPS_URL }}" \
             --stack-name ${{ env.STACK_NAME }} \
-            --parameter-overrides file://infra/parameters.json \
             --region ${{ env.AWS_REGION }} \
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
