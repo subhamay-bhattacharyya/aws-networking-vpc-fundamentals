@@ -1,4 +1,5 @@
-name: Deploy CloudFormation Stack
+name: Deploy Stack
+description: Deploy the CloudFormation stack
 
 on:
   push:
@@ -9,11 +10,11 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-1
-  S3_BUCKET: subhamay-cfn-templates-bucket-575937057599-us-east-1
-  STACK_NAME: vpc-fundamentals-stack
-  AWS_ACCOUNT_ID: 575937057599
-  ROLE_NAME: GitHubActionsOIDCRole
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  CFN_TEMPLATES_S3_BUCKET: ${{ vars.CFN_TEMPLATES_S3_BUCKET }}
+  STACK_NAME: ${{ github.event.repository.name }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  OIDC_ROLE_NAME: ${{ vars.OIDC_ROLE_NAME }}
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 permissions:
@@ -23,11 +24,12 @@ permissions:
 jobs:
   validate-and-deploy:
     runs-on: ubuntu-latest
+    environment: devl
     steps:
-      - name: Show Subject Pattern
-        run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Expected subject pattern: repo:${{ github.repository }}:*"
+      # - name: Show Subject Pattern
+      #   run: |
+      #     echo "Repository: ${{ github.repository }}"
+      #     echo "Expected subject pattern: repo:${{ github.repository }}:*"
         
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,7 +37,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify AWS Credentials
@@ -43,26 +45,26 @@ jobs:
           echo "✅ Successfully configured AWS credentials"
           aws sts get-caller-identity
 
-      # - name: Validate CloudFormation template
-      #   run: |
-      #     aws cloudformation validate-template \
-      #       --template-body file://infra/template.yaml
-      #     echo "✓ Template validation passed"
+      - name: Validate CloudFormation template
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infra/template.yaml
+          echo "✓ Template validation passed"
 
-      # - name: Upload template to S3
-      #   run: |
-      #     TIMESTAMP=$(date +%s)
-      #     TEMPLATE_KEY="templates/vpc-fundamentals-${TIMESTAMP}.yaml"
+      - name: Upload template to S3
+        run: |
+          # TIMESTAMP=$(date +%s)
+          TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
           
-      #     aws s3 cp infra/template.yaml "s3://${{ env.S3_BUCKET }}/${TEMPLATE_KEY}"
+          aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}"
           
-      #     echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
-      #     echo "✓ Template uploaded to S3"
+          echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
+          echo "✓ Template uploaded to S3"
 
-      # - name: Build S3 HTTPS URL
-      #   run: |
-      #     TEMPLATE_HTTPS_URL="https://${{ env.S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
-      #     echo "TEMPLATE_HTTPS_URL=${TEMPLATE_HTTPS_URL}" >> $GITHUB_ENV
+      - name: Build S3 HTTPS URL
+        run: |
+          TEMPLATE_HTTPS_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
+          echo "TEMPLATE_HTTPS_URL=${TEMPLATE_HTTPS_URL}" >> $GITHUB_ENV
 
       # - name: Deploy CloudFormation stack
       #   run: |
