@@ -14,11 +14,10 @@ jobs:
   deploy:
     uses: subhamay-bhattacharyya-gha/cloudformation-deploy-wf/.github/workflows/cfn-deploy.yaml@feature/GHA-0003-initial-release-cloudform
     with:
-      environment: devl
       aws-region: ${{ vars.AWS_REGION }}
-      aws-account-id: ${{ vars[format('AWS_ACCOUNT_ID_{0}', 'devl')] || vars.AWS_ACCOUNT_ID }}
-      oidc-role-name: ${{ vars[format('OIDC_ROLE_NAME_{0}', 'devl')] || vars.OIDC_ROLE_NAME }}
-      cfn-templates-s3-bucket: ${{ vars[format('CFN_TEMPLATES_S3_BUCKET_{0}', 'devl')] || vars.CFN_TEMPLATES_S3_BUCKET }}
+      aws-account-id: ${{ vars.AWS_ACCOUNT_ID }}
+      oidc-role-name: ${{ vars.OIDC_ROLE_NAME }}
+      cfn-templates-s3-bucket: ${{ vars.CFN_TEMPLATES_S3_BUCKET }}
       stack-name: ${{ github.event.repository.name }}
       template-file: infra/template.yaml
       parameters-file: infra/parameters.json
