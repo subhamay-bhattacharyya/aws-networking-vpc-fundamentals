@@ -64,16 +64,16 @@ jobs:
           echo "Stack name: ${{ env.STACK_NAME }}"
           echo "Region: ${{ env.AWS_REGION }}"
           echo "Template URL: ${{ env.TEMPLATE_URL }}"
+          echo "AWS CLI version:"
+          aws --version
 
-          DEPLOY_CMD="aws cloudformation deploy --template-url ${{ env.TEMPLATE_URL }} --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
-
-          # Check if parameters.json exists and is not empty
           if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
             echo "Using parameters from parameters.json"
-            DEPLOY_CMD="$DEPLOY_CMD --parameter-overrides file://./infra/parameters.json"
+            aws cloudformation deploy --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameter-overrides file://./infra/parameters.json --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+          else
+            echo "No parameters to pass"
+            aws cloudformation deploy --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
           fi
-
-          eval "$DEPLOY_CMD"
           echo "✓ Stack deployment completed"
 
       # - name: Fetch and display stack outputs
