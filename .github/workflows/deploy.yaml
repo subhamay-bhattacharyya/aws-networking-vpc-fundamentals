@@ -1,113 +1,24 @@
-name: Deploy Stack
-description: Deploy the CloudFormation stack using the specified templates and parameters.
+name: Deploy CloudFormation Stack
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'infra/**'
       - '.github/workflows/deploy.yaml'
-  pull_request:
-    paths:
-      - 'infra/**'
-
-env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  CFN_TEMPLATES_S3_BUCKET: ${{ vars.CFN_TEMPLATES_S3_BUCKET }}
-  STACK_NAME: ${{ github.event.repository.name }}
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-  OIDC_ROLE_NAME: ${{ vars.OIDC_ROLE_NAME }}
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
-permissions:
-  id-token: write
-  contents: read
+    # Allowed environment values: ci, devl, test, prod
+    # To deploy to a different environment, update the hardcoded value in the job
 
 jobs:
-  validate:
-    name: Validate CloudFormation Template
-    runs-on: ubuntu-latest
-    environment: devl
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v6.2.4
-        with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Verify AWS Credentials
-        run: |
-          echo "✅ Successfully configured AWS credentials"
-          aws sts get-caller-identity
-
-      - name: Validate CloudFormation Templates
-        uses: subhamay-bhattacharyya-gha/cfn-validate-action@main
-        with:
-          aws-role-arn: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
-          cloudformation-dir: 'infra'
-          template-file: 'template.yaml'
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Run CloudFormation Lint
-        uses: subhamay-bhattacharyya-gha/cfn-lint-action@v1.0.0
-        with:
-          template-path: 'infra/template.yaml'
-
-  upload-to-s3:
-    name: Upload Template to S3
-    runs-on: ubuntu-latest
-    environment: devl
-    needs: validate
-    permissions:
-      id-token: write
-      contents: read
-    outputs:
-      template_url: ${{ steps.upload.outputs.template_url }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v6.2.4
-        with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload template to S3 and set output
-        id: upload
-        run: |
-          TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
-          echo "Uploading template to S3..."
-          aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
-
-          TEMPLATE_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${TEMPLATE_KEY}"
-          echo "template_url=${TEMPLATE_URL}" >> $GITHUB_OUTPUT
-          echo "Template URL: ${TEMPLATE_URL}"
-          echo "✅ Template uploaded to S3"
-
   deploy:
-    name: Deploy Stack
-    runs-on: ubuntu-latest
-    environment: devl
-    needs: upload-to-s3
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7.0.1
-
-      - name: Deploy CloudFormation Stack
-        uses: subhamay-bhattacharyya-gha/cfn-deploy-action@v1.0.0
-        with:
-          stack-name: ${{ env.STACK_NAME }}
-          region: ${{ env.AWS_REGION }}
-          template-url: ${{ needs.upload-to-s3.outputs.template_url }}
-          parameters-file: infra/parameters.json
-          aws-account-id: ${{ env.AWS_ACCOUNT_ID }}
-          oidc-role-name: ${{ env.OIDC_ROLE_NAME }}
+    uses: subhamay-bhattacharyya-gha/cloudformation-deploy-wf/.github/workflows/cfn-deploy.yaml@feature/GHA-0003-initial-release-cloudform
+    with:
+      environment: devl
+      aws-region: ${{ vars[format('AWS_REGION_{0}', 'devl')] || vars.AWS_REGION }}
+      aws-account-id: ${{ vars[format('AWS_ACCOUNT_ID_{0}', 'devl')] || vars.AWS_ACCOUNT_ID }}
+      oidc-role-name: ${{ vars[format('OIDC_ROLE_NAME_{0}', 'devl')] || vars.OIDC_ROLE_NAME }}
+      cfn-templates-s3-bucket: ${{ vars[format('CFN_TEMPLATES_S3_BUCKET_{0}', 'devl')] || vars.CFN_TEMPLATES_S3_BUCKET }}
+      stack-name: ${{ github.event.repository.name }}
+      template-file: infra/template.yaml
+      parameters-file: infra/parameters.json
