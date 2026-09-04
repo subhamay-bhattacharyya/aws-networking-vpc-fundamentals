@@ -9,12 +9,17 @@ Parameters:
     Type: String
     Default: subhamay-test-bucket
     Description: Base name for the S3 bucket (account ID and region will be appended)
+  environment:
+    Type: String
+    Default: devl
+    Description: "Deployment environment for the S3 bucket"
+  
 
 Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${BucketBaseName}-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Sub '${BucketBaseName}-${AWS::AccountId}-${environment}-${AWS::Region}'
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:

@@ -100,7 +100,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Deploy CloudFormation Stack
         uses: subhamay-bhattacharyya-gha/cfn-deploy-action@feature/GHA-0009-feat-implement-cloudforma
