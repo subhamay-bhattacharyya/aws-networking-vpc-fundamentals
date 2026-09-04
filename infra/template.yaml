@@ -1,4 +1,7 @@
+---
+
 AWSTemplateFormatVersion: '2010-09-09'
+
 Description: 'Basic CloudFormation template to create an S3 bucket'
 
 Resources:
@@ -6,3 +9,16 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub 'subhamay-test-bucket-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+Outputs:
+  S3BucketName:
+    Description: "Name of the S3 bucket"
+    Value: !Ref S3Bucket
+  S3BucketArn:
+    Description: "ARN of the S3 bucket"
+    Value: !GetAtt S3Bucket.Arn
+  
