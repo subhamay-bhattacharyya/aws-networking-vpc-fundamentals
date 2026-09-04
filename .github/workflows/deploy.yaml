@@ -13,7 +13,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   CFN_TEMPLATES_S3_BUCKET: ${{ vars.CFN_TEMPLATES_S3_BUCKET }}
   STACK_NAME: ${{ github.event.repository.name }}
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   OIDC_ROLE_NAME: ${{ vars.OIDC_ROLE_NAME }}
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   cfn-deploy:
-    name: Validate and Deploy CloudFormation Stack
+    name: Deploy Stack
     runs-on: ubuntu-latest
     environment: devl
     steps:
@@ -44,7 +44,7 @@ jobs:
       - name: Verify AWS Credentials
         run: |
           echo "✅ Successfully configured AWS credentials"
-          # aws sts get-caller-identity
+          aws sts get-caller-identity
 
       - name: Validate CloudFormation template
         run: |
@@ -67,16 +67,16 @@ jobs:
           TEMPLATE_HTTPS_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
           echo "TEMPLATE_HTTPS_URL=${TEMPLATE_HTTPS_URL}" >> $GITHUB_ENV
 
-      # - name: Deploy CloudFormation stack
-      #   run: |
-      #     aws cloudformation deploy \
-      #       --template-url "${{ env.TEMPLATE_HTTPS_URL }}" \
-      #       --stack-name ${{ env.STACK_NAME }} \
-      #       --parameter-overrides file://infra/parameters.json \
-      #       --region ${{ env.AWS_REGION }} \
-      #       --no-fail-on-empty-changeset \
-      #       --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
-      #     echo "✓ Stack deployment completed"
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-url "${{ env.TEMPLATE_HTTPS_URL }}" \
+            --stack-name ${{ env.STACK_NAME }} \
+            --parameter-overrides file://infra/parameters.json \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+          echo "✓ Stack deployment completed"
 
       # - name: Fetch and display stack outputs
       #   if: success()
