@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/**'
+      - 'infra/**'
       - '.github/workflows/deploy.yaml'
   workflow_dispatch:
 
@@ -22,16 +22,11 @@ permissions:
   contents: read
 
 jobs:
-  cfn-deploy:
-    name: Deploy Stack
+  validate:
+    name: Validate Template
     runs-on: ubuntu-latest
     environment: devl
     steps:
-      # - name: Show Subject Pattern
-      #   run: |
-      #     echo "Repository: ${{ github.repository }}"
-      #     echo "Expected subject pattern: repo:${{ github.repository }}:*"
-        
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -46,24 +41,67 @@ jobs:
           echo "✅ Successfully configured AWS credentials"
           aws sts get-caller-identity
 
+      - name: Validate CloudFormation template
+        run: |
+          echo "Validating template: infra/template.yaml"
+          aws cloudformation validate-template --template-body file://./infra/template.yaml --region ${{ env.AWS_REGION }}
+          echo "✅ Template validation passed"
+
+  upload-to-s3:
+    name: Upload Template to S3
+    runs-on: ubuntu-latest
+    environment: devl
+    needs: validate
+    outputs:
+      template_url: ${{ steps.build-url.outputs.template_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Upload template to S3
+        id: upload
         run: |
           TEMPLATE_KEY="${{ github.event.repository.name }}/template.yaml"
-          aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}"
+          echo "Uploading template to S3..."
+          aws s3 cp infra/template.yaml "s3://${{ env.CFN_TEMPLATES_S3_BUCKET }}/${TEMPLATE_KEY}" --region ${{ env.AWS_REGION }}
           echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
-          echo "✓ Template uploaded to S3"
+          echo "✅ Template uploaded to S3"
 
       - name: Build S3 template URL
+        id: build-url
         run: |
           TEMPLATE_URL="https://${{ env.CFN_TEMPLATES_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.TEMPLATE_KEY }}"
-          echo "TEMPLATE_URL=${TEMPLATE_URL}" >> $GITHUB_ENV
+          echo "template_url=${TEMPLATE_URL}" >> $GITHUB_OUTPUT
           echo "Template URL: ${TEMPLATE_URL}"
 
+  deploy:
+    name: Deploy Stack
+    runs-on: ubuntu-latest
+    environment: devl
+    needs: upload-to-s3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.OIDC_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy CloudFormation stack
+        id: deploy
         run: |
+          TEMPLATE_URL="${{ needs.upload-to-s3.outputs.template_url }}"
           echo "Stack name: ${{ env.STACK_NAME }}"
           echo "Region: ${{ env.AWS_REGION }}"
-          echo "Template URL: ${{ env.TEMPLATE_URL }}"
+          echo "Template URL: ${TEMPLATE_URL}"
 
           # Check if stack exists
           STACK_EXISTS=$(aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" 2>&1 || echo "")
@@ -71,79 +109,74 @@ jobs:
           if echo "$STACK_EXISTS" | grep -q "does not exist"; then
             echo "Creating new stack..."
             if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
-              aws cloudformation create-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameters file://./infra/parameters.json --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+              aws cloudformation create-stack --template-url "${TEMPLATE_URL}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameters file://./infra/parameters.json --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
             else
-              aws cloudformation create-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+              aws cloudformation create-stack --template-url "${TEMPLATE_URL}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
             fi
+            OPERATION="CREATE"
           else
             echo "Updating existing stack..."
             if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
-              aws cloudformation update-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameters file://./infra/parameters.json --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND || true
+              aws cloudformation update-stack --template-url "${TEMPLATE_URL}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --parameters file://./infra/parameters.json --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND || true
             else
-              aws cloudformation update-stack --template-url "${{ env.TEMPLATE_URL }}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND || true
+              aws cloudformation update-stack --template-url "${TEMPLATE_URL}" --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND || true
             fi
+            OPERATION="UPDATE"
           fi
-          echo "✓ Stack deployment completed"
+          echo "OPERATION=${OPERATION}" >> $GITHUB_ENV
+          echo "Stack deployment initiated"
 
-      # - name: Fetch and display stack outputs
-      #   if: success()
-      #   run: |
-      #     echo "## 📊 CloudFormation Stack Outputs" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Stack Name:** \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Region:** \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Deployment Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-          
-      #     STACK_INFO=$(aws cloudformation describe-stacks \
-      #       --stack-name ${{ env.STACK_NAME }} \
-      #       --region ${{ env.AWS_REGION }} \
-      #       --query 'Stacks[0]' \
-      #       --output json)
-          
-      #     STACK_STATUS=$(echo $STACK_INFO | jq -r '.StackStatus')
-      #     echo "**Stack Status:** \`${STACK_STATUS}\`" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-          
-      #     OUTPUTS=$(echo $STACK_INFO | jq '.Outputs // empty')
-          
-      #     if [ -z "$OUTPUTS" ]; then
-      #       echo "### Outputs" >> $GITHUB_STEP_SUMMARY
-      #       echo "No outputs defined in this stack." >> $GITHUB_STEP_SUMMARY
-      #     else
-      #       echo "### Outputs" >> $GITHUB_STEP_SUMMARY
-      #       echo "" >> $GITHUB_STEP_SUMMARY
-      #       echo "| Output Key | Value | Description |" >> $GITHUB_STEP_SUMMARY
-      #       echo "|------------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
-            
-      #       echo $OUTPUTS | jq -r '.[] | "| \`\(.OutputKey)\` | \`\(.OutputValue)\` | \(.Description // "N/A") |"' >> $GITHUB_STEP_SUMMARY
-      #     fi
-          
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "### Resources" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-          
-      #     RESOURCES=$(aws cloudformation list-stack-resources \
-      #       --stack-name ${{ env.STACK_NAME }} \
-      #       --region ${{ env.AWS_REGION }} \
-      #       --query 'StackResourceSummaries[*].[LogicalResourceId, ResourceType, ResourceStatus]' \
-      #       --output json)
-          
-      #     echo "| Logical ID | Resource Type | Status |" >> $GITHUB_STEP_SUMMARY
-      #     echo "|------------|---------------|--------|" >> $GITHUB_STEP_SUMMARY
-          
-      #     echo $RESOURCES | jq -r '.[] | "| \`\(.[0])\` | \`\(.[1])\` | \(.[2]) |"' >> $GITHUB_STEP_SUMMARY
-          
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "---" >> $GITHUB_STEP_SUMMARY
-      #     echo "📝 **Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+      - name: Wait for stack deployment to complete
+        run: |
+          echo "Waiting for stack deployment to complete..."
+          if [ "${{ env.OPERATION }}" = "CREATE" ]; then
+            aws cloudformation wait stack-create-complete --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}"
+            echo "✅ Stack creation completed successfully"
+          else
+            aws cloudformation wait stack-update-complete --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" || {
+              STATUS=$(aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --query 'Stacks[0].StackStatus' --output text)
+              if [ "$STATUS" = "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS" ] || [ "$STATUS" = "UPDATE_COMPLETE" ]; then
+                echo "✅ Stack update completed successfully"
+              else
+                echo "❌ Stack update failed with status: $STATUS"
+                exit 1
+              fi
+            }
+          fi
 
-      # - name: Notify on failure
-      #   if: failure()
-      #   run: |
-      #     echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "Stack: \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-      #     echo "Region: \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "Please check the AWS CloudFormation console for error details." >> $GITHUB_STEP_SUMMARY
+      - name: Display stack information
+        if: success()
+        run: |
+          echo "## 📊 CloudFormation Stack Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          STACK_INFO=$(aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" --region "${{ env.AWS_REGION }}" --query 'Stacks[0]' --output json)
+          STACK_STATUS=$(echo $STACK_INFO | jq -r '.StackStatus')
+          echo "**Stack Status:** \`${STACK_STATUS}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          OUTPUTS=$(echo $STACK_INFO | jq '.Outputs // empty')
+          if [ -z "$OUTPUTS" ] || [ "$OUTPUTS" = "null" ]; then
+            echo "### Outputs" >> $GITHUB_STEP_SUMMARY
+            echo "No outputs defined in this stack." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Outputs" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Key | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|------------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo $OUTPUTS | jq -r '.[] | "| \(.OutputKey) | \(.OutputValue) |"' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Stack: \`${{ env.STACK_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Region: \`${{ env.AWS_REGION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the AWS CloudFormation console for error details." >> $GITHUB_STEP_SUMMARY
