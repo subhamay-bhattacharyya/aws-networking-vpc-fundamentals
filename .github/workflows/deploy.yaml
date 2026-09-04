@@ -55,7 +55,18 @@ jobs:
         run: |
           echo "Stack name: ${{ env.STACK_NAME }}"
           echo "Region: ${{ env.AWS_REGION }}"
-          cat infra/template.yaml | aws cloudformation deploy --template-body file:///dev/stdin --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+
+          DEPLOY_CMD="aws cloudformation deploy --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+
+          # Check if parameters.json exists and is not empty
+          if [ -f infra/parameters.json ] && [ -s infra/parameters.json ] && [ "$(cat infra/parameters.json)" != "{}" ]; then
+            echo "Using parameters from parameters.json"
+            DEPLOY_CMD="$DEPLOY_CMD --parameter-overrides file://./infra/parameters.json"
+          fi
+
+          # Add template to command and execute
+          DEPLOY_CMD="$DEPLOY_CMD --template-body file://./infra/template.yaml"
+          eval "$DEPLOY_CMD"
           echo "✓ Stack deployment completed"
 
       # - name: Fetch and display stack outputs
