@@ -14,7 +14,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   CFN_TEMPLATES_S3_BUCKET: ${{ vars.CFN_TEMPLATES_S3_BUCKET }}
   STACK_NAME: ${{ github.event.repository.name }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
   OIDC_ROLE_NAME: ${{ vars.OIDC_ROLE_NAME }}
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
