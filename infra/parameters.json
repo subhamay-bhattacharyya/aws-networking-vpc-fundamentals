@@ -1,6 +1,6 @@
 [
   {
     "ParameterKey": "BucketBaseName",
-    "ParameterValue": "subhamay-test-bucket"
+    "ParameterValue": "subhamay-gha-test-bucket"
   }
 ]

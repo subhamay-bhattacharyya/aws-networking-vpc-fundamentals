@@ -54,7 +54,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Run CloudFormation Lint
-        uses: subhamay-bhattacharyya-gha/cfn-lint-action@main
+        uses: subhamay-bhattacharyya-gha/cfn-lint-action@v1.0.0
         with:
           template-path: 'infra/template.yaml'
 
@@ -103,7 +103,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Deploy CloudFormation Stack
-        uses: subhamay-bhattacharyya-gha/cfn-deploy-action@feature/GHA-0009-feat-implement-cloudforma
+        uses: subhamay-bhattacharyya-gha/cfn-deploy-action@v1.0.0
         with:
           stack-name: ${{ env.STACK_NAME }}
           region: ${{ env.AWS_REGION }}
