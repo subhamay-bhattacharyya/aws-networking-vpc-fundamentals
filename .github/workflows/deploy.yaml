@@ -75,7 +75,7 @@ jobs:
           aws s3api put-object-tagging \
             --bucket "${{ env.CFN_TEMPLATES_S3_BUCKET }}" \
             --key "${TEMPLATE_KEY}" \
-            --tagging 'TagSet=[{Key=github-sha,Value=${{ github.sha }}}]' \
+            --tagging "TagSet=[{Key=github-sha,Value=${{ github.sha }}}]" \
             --region ${{ env.AWS_REGION }}
 
           echo "TEMPLATE_KEY=${TEMPLATE_KEY}" >> $GITHUB_ENV
