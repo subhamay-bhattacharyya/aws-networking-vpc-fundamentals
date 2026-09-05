@@ -7,8 +7,11 @@ on:
     paths:
       - 'infra/**'
       - '.github/workflows/deploy.yaml'
-    # Allowed environment values: ci, devl, test, prod
-    # To deploy to a different environment, update the hardcoded value in the job
+
+env:
+  DEPLOY_ENV: devl
+  # Allowed environment values: ci, devl, test, prod
+  # To deploy to a different environment, update DEPLOY_ENV above
 
 jobs:
   get-config:
@@ -16,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: devl
     outputs:
+      environment: ${{ env.DEPLOY_ENV }}
       aws-region: ${{ steps.config.outputs.aws-region }}
       aws-account-id: ${{ steps.config.outputs.aws-account-id }}
       oidc-role-name: ${{ steps.config.outputs.oidc-role-name }}
@@ -32,6 +36,7 @@ jobs:
     needs: get-config
     uses: subhamay-bhattacharyya-gha/cloudformation-deploy-wf/.github/workflows/cfn-deploy.yaml@feature/GHA-0003-initial-release-cloudform
     with:
+      environment: ${{ needs.get-config.outputs.environment }}
       aws-region: ${{ needs.get-config.outputs.aws-region }}
       aws-account-id: ${{ needs.get-config.outputs.aws-account-id }}
       oidc-role-name: ${{ needs.get-config.outputs.oidc-role-name }}
