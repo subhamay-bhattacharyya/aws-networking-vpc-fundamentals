@@ -16,10 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: devl
     outputs:
-      aws-region: ${{ vars.AWS_REGION }}
-      aws-account-id: ${{ vars.AWS_ACCOUNT_ID }}
-      oidc-role-name: ${{ vars.OIDC_ROLE_NAME }}
-      cfn-templates-s3-bucket: ${{ vars.CFN_TEMPLATES_S3_BUCKET }}
+      aws-region: ${{ steps.config.outputs.aws-region }}
+      aws-account-id: ${{ steps.config.outputs.aws-account-id }}
+      oidc-role-name: ${{ steps.config.outputs.oidc-role-name }}
+      cfn-templates-s3-bucket: ${{ steps.config.outputs.cfn-templates-s3-bucket }}
+    steps:
+      - id: config
+        run: |
+          echo "aws-region=${{ vars.AWS_REGION }}" >> $GITHUB_OUTPUT
+          echo "aws-account-id=${{ vars.AWS_ACCOUNT_ID }}" >> $GITHUB_OUTPUT
+          echo "oidc-role-name=${{ vars.OIDC_ROLE_NAME }}" >> $GITHUB_OUTPUT
+          echo "cfn-templates-s3-bucket=${{ vars.CFN_TEMPLATES_S3_BUCKET }}" >> $GITHUB_OUTPUT
 
   deploy:
     needs: get-config
