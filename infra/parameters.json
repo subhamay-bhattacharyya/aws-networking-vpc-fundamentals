@@ -2,5 +2,9 @@
   {
     "ParameterKey": "BucketBaseName",
     "ParameterValue": "subhamay-gha-test-bucket-1"
+  },
+  {
+    "ParameterKey": "CiPrefix",
+    "ParameterValue": ""
   }
 ]
