@@ -13,13 +13,22 @@ Parameters:
     Type: String
     Default: devl
     Description: "Deployment environment for the S3 bucket"
-  
+  CiPrefix:
+    Type: String
+    Default: ""
+    Description: "Optional CI prefix to append to the bucket name"
+
+Conditions:
+  HasCiPrefix: !Not [!Equals [!Ref CiPrefix, ""]]
 
 Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${BucketBaseName}-${AWS::AccountId}-${environment}-${AWS::Region}'
+      BucketName: !If
+        - HasCiPrefix
+        - !Sub '${BucketBaseName}-${AWS::AccountId}-${environment}-${AWS::Region}-${CiPrefix}'
+        - !Sub '${BucketBaseName}-${AWS::AccountId}-${environment}-${AWS::Region}'
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
